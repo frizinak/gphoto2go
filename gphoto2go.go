@@ -4,11 +4,13 @@ package gphoto2go
 // #include <gphoto2.h>
 // #include <stdlib.h>
 import "C"
-import "unsafe"
-
-import "strings"
-import "io"
-import "reflect"
+import (
+	"fmt"
+	"io"
+	"reflect"
+	"strings"
+	"unsafe"
+)
 
 const (
 	CAPTURE_IMAGE = C.GP_CAPTURE_IMAGE
@@ -27,6 +29,10 @@ type CameraFile struct {
 type CameraFilePath struct {
 	Name   string
 	Folder string
+}
+
+type CameraWidget struct {
+	widget *C.CameraWidget
 }
 
 func (c *Camera) Init() int {
@@ -334,4 +340,76 @@ func getPreviewFile(file *CameraFile) {
 	var cSize C.ulong
 	var buf *C.char
 	C.gp_file_get_data_and_size(file.file, &buf, &cSize)
+}
+
+func (w *CameraWidget) Free() {
+	if err := toError(C.gp_widget_free(w.widget)); err != nil {
+		fmt.Printf("WARNING: error on C.gp_widget_free: %v\n", err)
+	}
+}
+
+func (w *CameraWidget) GetChildrenByName(name string) (*CameraWidget, error) {
+	var child *C.CameraWidget
+
+	n := C.CString(name)
+	defer C.free(unsafe.Pointer(n))
+
+	err := toError(C.gp_widget_get_child_by_name(w.widget, n, &child))
+	if err != nil {
+		C.free(unsafe.Pointer(child))
+		return nil, fmt.Errorf("error on C.gp_widget_get_child_by_name(%s): %v", name, err)
+	}
+
+	return &CameraWidget{child}, nil
+}
+
+func (w *CameraWidget) SetValue(v interface{}) error {
+	switch v.(type) {
+	case string:
+		cstr := C.CString(v.(string))
+		defer C.free(unsafe.Pointer(cstr))
+
+		if err := toError(C.gp_widget_set_value(w.widget, unsafe.Pointer(cstr))); err != nil {
+			return err
+		}
+	default:
+		if err := toError(C.gp_widget_set_value(w.widget, unsafe.Pointer(&v))); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (c *Camera) SetConfig(w *CameraWidget) error {
+	if err := toError(C.gp_camera_set_config(c.camera, w.widget, c.context)); err != nil {
+		return fmt.Errorf("error on C.gp_camera_set_config %v", err)
+	}
+	return nil
+}
+
+func toError(i C.int) error {
+	if int(i) < 0 {
+		return fmt.Errorf(CameraResultToString(int(i)))
+	}
+	return nil
+}
+
+func (c *Camera) GetConfig() (*CameraWidget, error) {
+	w := CameraWidget{}
+
+	p := C.CString("")
+	defer C.free(unsafe.Pointer(p))
+
+	err := toError(C.gp_widget_new(C.GP_WIDGET_WINDOW, p, &w.widget))
+	if err != nil {
+		C.free(unsafe.Pointer(w.widget))
+		return nil, err
+	}
+
+	if err := toError(C.gp_camera_get_config(c.camera, &w.widget, c.context)); err != nil {
+		w.Free()
+		return nil, err
+	}
+	return &w, nil
 }
