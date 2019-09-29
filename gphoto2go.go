@@ -35,41 +35,43 @@ type CameraWidget struct {
 	widget *C.CameraWidget
 }
 
-func (c *Camera) Init() int {
+func (c *Camera) Init() error {
 	c.context = C.gp_context_new()
 
 	C.gp_camera_new(&c.camera)
-	err := C.gp_camera_init(c.camera, c.context)
-	return int(err)
+	return cameraResultToError(C.gp_camera_init(c.camera, c.context))
 }
 
-func (c *Camera) Exit() int {
+func (c *Camera) Exit() error {
 	err := C.gp_camera_exit(c.camera, c.context)
-	return int(err)
+	return cameraResultToError(err)
 }
 
 func (c *Camera) Cancel() {
 	C.gp_context_cancel(c.context)
 }
 
-func (c *Camera) GetAbilities() (C.CameraAbilities, int) {
+func (c *Camera) GetAbilities() (C.CameraAbilities, error) {
 	var abilities C.CameraAbilities
-	err := C.gp_camera_get_abilities(c.camera, &abilities)
-	return abilities, int(err)
+	err := cameraResultToError(C.gp_camera_get_abilities(c.camera, &abilities))
+	return abilities, err
 }
 
-func (c *Camera) TriggerCapture() int {
+func (c *Camera) TriggerCapture() error {
 	err := C.gp_camera_trigger_capture(c.camera, c.context)
-	return int(err)
+	return cameraResultToError(err)
 }
 
-func (c *Camera) TriggerCaptureToFile() (CameraFilePath, int) {
+func (c *Camera) TriggerCaptureToFile() (CameraFilePath, error) {
 	var path CameraFilePath
 	var _path C.CameraFilePath
-	err := C.gp_camera_capture(c.camera, CAPTURE_IMAGE, &_path, c.context)
+	err := cameraResultToError(C.gp_camera_capture(c.camera, CAPTURE_IMAGE, &_path, c.context))
+	if err != nil {
+		return path, err
+	}
 	path.Name = C.GoString(&_path.name[0])
 	path.Folder = C.GoString(&_path.folder[0])
-	return path, int(err)
+	return path, nil
 }
 
 type CameraEventType int
@@ -114,7 +116,7 @@ func cCameraEventToGoCameraEvent(voidPtr unsafe.Pointer, eventType C.CameraEvent
 	return ce
 }
 
-func (c *Camera) ListFolders(folder string) ([]string, int) {
+func (c *Camera) ListFolders(folder string) ([]string, error) {
 	if folder == "" {
 		folder = "/"
 	}
@@ -126,7 +128,9 @@ func (c *Camera) ListFolders(folder string) ([]string, int) {
 	cFolder := C.CString(folder)
 	defer C.free(unsafe.Pointer(cFolder))
 
-	err := C.gp_camera_folder_list_folders(c.camera, cFolder, cameraList, c.context)
+	if err := cameraResultToError(C.gp_camera_folder_list_folders(c.camera, cFolder, cameraList, c.context)); err != nil {
+		return []string{}, err
+	}
 	folderMap, _ := cameraListToMap(cameraList)
 
 	names := make([]string, len(folderMap))
@@ -136,7 +140,7 @@ func (c *Camera) ListFolders(folder string) ([]string, int) {
 		i += 1
 	}
 
-	return names, int(err)
+	return names, nil
 }
 
 func (c *Camera) RListFolders(folder string) []string {
@@ -155,7 +159,7 @@ func (c *Camera) RListFolders(folder string) []string {
 	return folders
 }
 
-func (c *Camera) ListFiles(folder string) ([]string, int) {
+func (c *Camera) ListFiles(folder string) ([]string, error) {
 	if folder == "" {
 		folder = "/"
 	}
@@ -171,7 +175,9 @@ func (c *Camera) ListFiles(folder string) ([]string, int) {
 	cFolder := C.CString(folder)
 	defer C.free(unsafe.Pointer(cFolder))
 
-	err := C.gp_camera_folder_list_files(c.camera, cFolder, cameraList, c.context)
+	if err := cameraResultToError(C.gp_camera_folder_list_files(c.camera, cFolder, cameraList, c.context)); err != nil {
+		return []string{}, err
+	}
 	fileNameMap, _ := cameraListToMap(cameraList)
 
 	names := make([]string, len(fileNameMap))
@@ -181,7 +187,7 @@ func (c *Camera) ListFiles(folder string) ([]string, int) {
 		i += 1
 	}
 
-	return names, int(err)
+	return names, nil
 }
 
 func cameraListToMap(cameraList *C.CameraList) (map[string]string, int) {
@@ -209,15 +215,25 @@ func cameraListToMap(cameraList *C.CameraList) (map[string]string, int) {
 	return vals, 0
 }
 
-func (c *Camera) Model() (string, int) {
+func (c *Camera) Model() (string, error) {
 	abilities, err := c.GetAbilities()
+	if err != nil {
+		return "", err
+	}
 	model := C.GoString((*C.char)(&abilities.model[0]))
 
-	return model, err
+	return model, nil
 }
 
-func CameraResultToString(err int) string {
-	return C.GoString(C.gp_result_as_string(C.int(err)))
+func cameraResultToError(err C.int) error {
+	if err != 0 {
+		return fmt.Errorf(C.GoString(C.gp_result_as_string(err)))
+	}
+	return nil
+}
+
+func CameraResultToString(err C.int) string {
+	return C.GoString(C.gp_result_as_string(err))
 }
 
 // Need to find a good buffer size
@@ -315,20 +331,19 @@ func (c *Camera) FileReader(folder string, fileName string) io.ReadCloser {
 	return cfr
 }
 
-func (c *Camera) DeleteFile(folder, file string) int {
+func (c *Camera) DeleteFile(folder, file string) error {
 	folderBytes := []byte(folder)
 	fileBytes := []byte(file)
 	//Convert the byte arrays into C pointers
 
 	folderPointer := (*C.char)(unsafe.Pointer(&folderBytes[0]))
 	filePointer := (*C.char)(unsafe.Pointer(&fileBytes[0]))
-	err := C.gp_camera_file_delete(c.camera, folderPointer, filePointer, c.context)
-	return int(err)
+	return cameraResultToError(C.gp_camera_file_delete(c.camera, folderPointer, filePointer, c.context))
 }
 
-func (c *Camera) CapturePreview() (cf CameraFile, err int) {
+func (c *Camera) CapturePreview() (cf CameraFile, err error) {
 	C.gp_file_new(&cf.file)
-	err = int(C.gp_camera_capture_preview(
+	err = cameraResultToError(C.gp_camera_capture_preview(
 		c.camera,
 		cf.file,
 		c.context))
@@ -343,7 +358,7 @@ func getPreviewFile(file *CameraFile) {
 }
 
 func (w *CameraWidget) Free() {
-	if err := toError(C.gp_widget_free(w.widget)); err != nil {
+	if err := cameraResultToError(C.gp_widget_free(w.widget)); err != nil {
 		fmt.Printf("WARNING: error on C.gp_widget_free: %v\n", err)
 	}
 }
@@ -354,7 +369,7 @@ func (w *CameraWidget) GetChildrenByName(name string) (*CameraWidget, error) {
 	n := C.CString(name)
 	defer C.free(unsafe.Pointer(n))
 
-	err := toError(C.gp_widget_get_child_by_name(w.widget, n, &child))
+	err := cameraResultToError(C.gp_widget_get_child_by_name(w.widget, n, &child))
 	if err != nil {
 		C.free(unsafe.Pointer(child))
 		return nil, fmt.Errorf("error on C.gp_widget_get_child_by_name(%s): %v", name, err)
@@ -369,11 +384,11 @@ func (w *CameraWidget) SetValue(v interface{}) error {
 		cstr := C.CString(v.(string))
 		defer C.free(unsafe.Pointer(cstr))
 
-		if err := toError(C.gp_widget_set_value(w.widget, unsafe.Pointer(cstr))); err != nil {
+		if err := cameraResultToError(C.gp_widget_set_value(w.widget, unsafe.Pointer(cstr))); err != nil {
 			return err
 		}
 	default:
-		if err := toError(C.gp_widget_set_value(w.widget, unsafe.Pointer(&v))); err != nil {
+		if err := cameraResultToError(C.gp_widget_set_value(w.widget, unsafe.Pointer(&v))); err != nil {
 			return err
 		}
 	}
@@ -382,15 +397,8 @@ func (w *CameraWidget) SetValue(v interface{}) error {
 }
 
 func (c *Camera) SetConfig(w *CameraWidget) error {
-	if err := toError(C.gp_camera_set_config(c.camera, w.widget, c.context)); err != nil {
+	if err := cameraResultToError(C.gp_camera_set_config(c.camera, w.widget, c.context)); err != nil {
 		return fmt.Errorf("error on C.gp_camera_set_config %v", err)
-	}
-	return nil
-}
-
-func toError(i C.int) error {
-	if int(i) < 0 {
-		return fmt.Errorf(CameraResultToString(int(i)))
 	}
 	return nil
 }
@@ -401,13 +409,13 @@ func (c *Camera) GetConfig() (*CameraWidget, error) {
 	p := C.CString("")
 	defer C.free(unsafe.Pointer(p))
 
-	err := toError(C.gp_widget_new(C.GP_WIDGET_WINDOW, p, &w.widget))
+	err := cameraResultToError(C.gp_widget_new(C.GP_WIDGET_WINDOW, p, &w.widget))
 	if err != nil {
 		C.free(unsafe.Pointer(w.widget))
 		return nil, err
 	}
 
-	if err := toError(C.gp_camera_get_config(c.camera, &w.widget, c.context)); err != nil {
+	if err := cameraResultToError(C.gp_camera_get_config(c.camera, &w.widget, c.context)); err != nil {
 		w.Free()
 		return nil, err
 	}
