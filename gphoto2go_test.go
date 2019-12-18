@@ -10,8 +10,8 @@ func TestCapturePreviewSanity(t *testing.T) {
 	}()
 	cam := &Camera{}
 	cam.Init()
-	_, i := cam.CapturePreview()
-	if i != 0 {
-		t.Fatalf("Expected 0, got %d. Camera must be on", i)
+
+	if _, err := cam.CapturePreview(); err != nil {
+		t.Fatalf("Expected nil error, got %s. Camera must be on", err)
 	}
 }
