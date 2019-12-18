@@ -17,7 +17,8 @@ type CameraWidget struct {
 // Name func
 func (w *CameraWidget) Name() (string, error) {
 	var _name *C.char
-	
+	defer C.free(unsafe.Pointer(_name))
+
 	if err := cameraResultToError(C.gp_widget_get_name(w.widget, &_name)); err != nil {
 		return "", err
 	}
@@ -66,4 +67,3 @@ func (w *CameraWidget) SetValue(v interface{}) error {
 
 	return nil
 }
-
