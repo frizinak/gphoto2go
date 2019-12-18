@@ -10,26 +10,28 @@ import (
 )
 
 const (
-	CAPTURE_IMAGE = C.GP_CAPTURE_IMAGE
-	CAPTURE_MOVIE = C.GP_CAPTURE_MOVIE
-	CAPTURE_SOUND = C.GP_CAPTURE_SOUND
+	captureImage = C.GP_CAPTURE_IMAGE
+	captureMovie = C.GP_CAPTURE_MOVIE
+	captureSound = C.GP_CAPTURE_SOUND
 )
 
 // CameraEventType code
 type CameraEventType int
 
 const (
-	EventUnknown   CameraEventType = C.GP_EVENT_UNKNOWN
-	EventTimeout   CameraEventType = C.GP_EVENT_TIMEOUT
-	EventFileAdded CameraEventType = C.GP_EVENT_FILE_ADDED
+	eventUnknown   CameraEventType = C.GP_EVENT_UNKNOWN
+	eventTimeout   CameraEventType = C.GP_EVENT_TIMEOUT
+	eventFileAdded CameraEventType = C.GP_EVENT_FILE_ADDED
 )
 
+// CameraEvent struct
 type CameraEvent struct {
 	Type   CameraEventType
 	Folder string
 	File   string
 }
 
+// CameraFilePath struct
 type CameraFilePath struct {
 	Name   string
 	Folder string
@@ -39,7 +41,7 @@ func cCameraEventToGoCameraEvent(voidPtr unsafe.Pointer, eventType C.CameraEvent
 	ce := new(CameraEvent)
 	ce.Type = CameraEventType(eventType)
 
-	if ce.Type == EventFileAdded {
+	if ce.Type == eventFileAdded {
 		cameraFilePath := (*C.CameraFilePath)(voidPtr)
 		ce.File = C.GoString((*C.char)(&cameraFilePath.name[0]))
 		ce.Folder = C.GoString((*C.char)(&cameraFilePath.folder[0]))
@@ -84,4 +86,3 @@ func cameraResultToError(err C.int) error {
 func CameraResultToString(err C.int) string {
 	return C.GoString(C.gp_result_as_string(err))
 }
-

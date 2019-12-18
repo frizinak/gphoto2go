@@ -53,7 +53,7 @@ func (c *Camera) TriggerCapture() error {
 func (c *Camera) TriggerCaptureToFile() (CameraFilePath, error) {
 	var path CameraFilePath
 	var _path C.CameraFilePath
-	err := cameraResultToError(C.gp_camera_capture(c.camera, CAPTURE_IMAGE, &_path, c.context))
+	err := cameraResultToError(C.gp_camera_capture(c.camera, captureImage, &_path, c.context))
 	if err != nil {
 		return path, err
 	}
@@ -147,9 +147,9 @@ func (c *Camera) ListFiles(folder string) ([]string, error) {
 
 	names := make([]string, len(fileNameMap))
 	i := 0
-	for key, _ := range fileNameMap {
+	for key := range fileNameMap {
 		names[i] = key
-		i += 1
+		i++
 	}
 
 	return names, nil
