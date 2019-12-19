@@ -13,8 +13,10 @@ import (
 
 // Camera struct
 type Camera struct {
-	camera  *C.Camera
-	context *C.GPContext
+	camera    *C.Camera
+	context   *C.GPContext
+	abilities C.CameraAbilities
+	err       error
 }
 
 // Init camera
@@ -22,7 +24,13 @@ func (c *Camera) Init() error {
 	c.context = C.gp_context_new()
 
 	C.gp_camera_new(&c.camera)
-	return cameraResultToError(C.gp_camera_init(c.camera, c.context))
+
+	if c.err = cameraResultToError(C.gp_camera_init(c.camera, c.context)); c.err == nil {
+		// if the above worked, go ahead and grab the abilities
+		c.err = cameraResultToError(C.gp_camera_get_abilities(c.camera, &c.abilities))
+	}
+
+	return c.err
 }
 
 // Exit func
@@ -36,11 +44,9 @@ func (c *Camera) Cancel() {
 	C.gp_context_cancel(c.context)
 }
 
-// GetAbilities func
-func (c *Camera) GetAbilities() (C.CameraAbilities, error) {
-	var abilities C.CameraAbilities
-	err := cameraResultToError(C.gp_camera_get_abilities(c.camera, &abilities))
-	return abilities, err
+// Abilities func
+func (c *Camera) Abilities() (C.CameraAbilities, error) {
+	return c.abilities, c.err
 }
 
 // TriggerCapture func
@@ -157,14 +163,32 @@ func (c *Camera) ListFiles(folder string) ([]string, error) {
 
 // Model func
 func (c *Camera) Model() (string, error) {
-	abilities, err := c.GetAbilities()
+	abilities, err := c.Abilities()
 	if err != nil {
 		return "", err
 	}
-	// model := C.GoString((*C.char)(&abilities.model[0]))
-	model := ToString(&abilities.model[0])
 
-	return model, nil
+	return ToString(&abilities.model[0]), nil
+}
+
+// ID func
+func (c *Camera) ID() (string, error) {
+	abilities, err := c.Abilities()
+	if err != nil {
+		return "", err
+	}
+
+	return ToString(&abilities.id[0]), nil
+}
+
+// Library func
+func (c *Camera) Library() (string, error) {
+	abilities, err := c.Abilities()
+	if err != nil {
+		return "", err
+	}
+
+	return ToString(&abilities.library[0]), nil
 }
 
 // FileReader func
