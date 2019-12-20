@@ -33,7 +33,7 @@ var widgetTypeTable = map[C.CameraWidgetType]WidgetTypeInfo{
 	C.GP_WIDGET_TEXT:    WidgetTypeInfo{"Text", wvtString, C.GP_WIDGET_TEXT, "Text widget"},
 	C.GP_WIDGET_RANGE:   WidgetTypeInfo{"Range", wvtNum, C.GP_WIDGET_RANGE, "Slider widget"},
 	C.GP_WIDGET_TOGGLE:  WidgetTypeInfo{"Toggle", wvtNum, C.GP_WIDGET_TOGGLE, "Toggle widget (think check box)"},
-	C.GP_WIDGET_RADIO:   WidgetTypeInfo{"Radio", wvtNum, C.GP_WIDGET_RADIO, "Radio button widget"},
+	C.GP_WIDGET_RADIO:   WidgetTypeInfo{"Radio", wvtString, C.GP_WIDGET_RADIO, "Radio button widget"},
 	C.GP_WIDGET_MENU:    WidgetTypeInfo{"Menu", wvtNum, C.GP_WIDGET_MENU, "Menu widget (same as RADIO)"},
 	C.GP_WIDGET_BUTTON:  WidgetTypeInfo{"Button", wvtNum, C.GP_WIDGET_BUTTON, "Button press widget"},
 	C.GP_WIDGET_DATE:    WidgetTypeInfo{"Date", wvtDate, C.GP_WIDGET_DATE, "Date entering widget"},
@@ -145,8 +145,8 @@ func (w *CameraWidget) Free() {
 	}
 }
 
-// GetChildrenByName func
-func (w *CameraWidget) GetChildrenByName(name string) (*CameraWidget, error) {
+// Child func
+func (w *CameraWidget) Child(name string) (*CameraWidget, error) {
 	var child *C.CameraWidget
 
 	n := C.CString(name)

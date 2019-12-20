@@ -10,14 +10,9 @@ import (
 	"unsafe"
 )
 
-// CameraFile struct
-type CameraFile struct {
-	file *C.CameraFile
-}
-
 // Need to find a good buffer size
 // For now, let's try 1MB
-const fileReaderBufferSize = 1 * 1024 * 1024
+const fileReaderBufferSize = 20 * 1024 * 1024
 
 type cameraFileReader struct {
 	camera   *Camera

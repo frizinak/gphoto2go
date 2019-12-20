@@ -7,6 +7,7 @@ import "C"
 import (
 	"fmt"
 	"io"
+	"os"
 	"strings"
 	"unsafe"
 )
@@ -16,21 +17,31 @@ type Camera struct {
 	camera    *C.Camera
 	context   *C.GPContext
 	abilities C.CameraAbilities
+	config    CameraWidget
 	err       error
 }
 
 // Init camera
 func (c *Camera) Init() error {
 	c.context = C.gp_context_new()
+	p := C.CString("")
+	defer C.free(unsafe.Pointer(p))
 
 	C.gp_camera_new(&c.camera)
 
-	if c.err = cameraResultToError(C.gp_camera_init(c.camera, c.context)); c.err == nil {
-		// if the above worked, go ahead and grab the abilities
-		c.err = cameraResultToError(C.gp_camera_get_abilities(c.camera, &c.abilities))
+	if c.err = cameraResultToError(C.gp_camera_init(c.camera, c.context)); c.err != nil {
+		return c.err
+	} else if c.err = cameraResultToError(C.gp_camera_get_abilities(c.camera, &c.abilities)); c.err != nil {
+		return c.err
+	} else if c.err = cameraResultToError(C.gp_widget_new(C.GP_WIDGET_WINDOW, p, &c.config.widget)); c.err != nil {
+		C.free(unsafe.Pointer(c.config.widget))
+		return c.err
+	} else if c.err = cameraResultToError(C.gp_camera_get_config(c.camera, &c.config.widget, c.context)); c.err != nil {
+		c.config.Free()
+		return c.err
 	}
 
-	return c.err
+	return nil
 }
 
 // Exit func
@@ -42,11 +53,6 @@ func (c *Camera) Exit() error {
 // Cancel func
 func (c *Camera) Cancel() {
 	C.gp_context_cancel(c.context)
-}
-
-// Abilities func
-func (c *Camera) Abilities() (C.CameraAbilities, error) {
-	return c.abilities, c.err
 }
 
 // TriggerCapture func
@@ -161,36 +167,6 @@ func (c *Camera) ListFiles(folder string) ([]string, error) {
 	return names, nil
 }
 
-// Model func
-func (c *Camera) Model() (string, error) {
-	abilities, err := c.Abilities()
-	if err != nil {
-		return "", err
-	}
-
-	return ToString(&abilities.model[0]), nil
-}
-
-// ID func
-func (c *Camera) ID() (string, error) {
-	abilities, err := c.Abilities()
-	if err != nil {
-		return "", err
-	}
-
-	return ToString(&abilities.id[0]), nil
-}
-
-// Library func
-func (c *Camera) Library() (string, error) {
-	abilities, err := c.Abilities()
-	if err != nil {
-		return "", err
-	}
-
-	return ToString(&abilities.library[0]), nil
-}
-
 // FileReader func
 func (c *Camera) FileReader(folder string, fileName string) io.ReadCloser {
 	cfr := new(cameraFileReader)
@@ -227,48 +203,96 @@ func (c *Camera) DeleteFile(folder, file string) error {
 	return cameraResultToError(C.gp_camera_file_delete(c.camera, folderPointer, filePointer, c.context))
 }
 
-func getPreviewFile(file *CameraFile) {
-	var cSize C.ulong
-	var buf *C.char
-	C.gp_file_get_data_and_size(file.file, &buf, &cSize)
-}
-
 // CapturePreview func
 func (c *Camera) CapturePreview() (cf CameraFile, err error) {
 	C.gp_file_new(&cf.file)
-	err = cameraResultToError(C.gp_camera_capture_preview(
-		c.camera,
-		cf.file,
-		c.context))
-	getPreviewFile(&cf)
-	return cf, err
+	if err := cameraResultToError(C.gp_camera_capture_preview(c.camera, cf.file, c.context)); err != nil {
+		return cf, err
+	}
+	if err := cameraResultToError(C.gp_file_get_data_and_size(cf.file, &cf.buf, &cf.cSize)); err != nil {
+		return cf, err
+	}
 
+	return cf, err
+}
+
+// CapturePreviewToFile func
+func (c *Camera) CapturePreviewToFile(fileName string) (cf CameraFile, err error) {
+	cf, err = c.CapturePreview()
+	if err != nil {
+		return cf, err
+	}
+
+	cfr := new(cameraFileReader)
+	cfr.camera = c
+	cfr.cCameraFile = cf.file
+	cfr.offset = 0
+	cfr.closed = false
+
+	cfr.fullSize = uint64(cf.cSize)
+	cfr.cBuffer = cf.buf
+
+	defer cfr.Close()
+
+	if fileWriter, err := os.Create(fileName); err == nil {
+		io.Copy(fileWriter, cfr)
+	}
+
+	return cf, err
+}
+
+//
+// getters and setters
+//
+
+// Model func
+func (c *Camera) Model() (string, error) {
+	abilities, err := c.Abilities()
+	if err != nil {
+		return "", err
+	}
+
+	return ToString(&abilities.model[0]), nil
+}
+
+// ID func
+func (c *Camera) ID() (string, error) {
+	abilities, err := c.Abilities()
+	if err != nil {
+		return "", err
+	}
+
+	return ToString(&abilities.id[0]), nil
+}
+
+// Library func
+func (c *Camera) Library() (string, error) {
+	abilities, err := c.Abilities()
+	if err != nil {
+		return "", err
+	}
+
+	return ToString(&abilities.library[0]), nil
+}
+
+// Abilities func
+func (c *Camera) Abilities() (C.CameraAbilities, error) {
+	return c.abilities, c.err
 }
 
 // SetConfig func
-func (c *Camera) SetConfig(w *CameraWidget) error {
-	if err := cameraResultToError(C.gp_camera_set_config(c.camera, w.widget, c.context)); err != nil {
+func (c *Camera) SetConfig() error {
+	if c.err != nil {
+		// something failed during camera init.  Bail!
+		return c.err
+	}
+	if err := cameraResultToError(C.gp_camera_set_config(c.camera, c.config.widget, c.context)); err != nil {
 		return fmt.Errorf("error on C.gp_camera_set_config %v", err)
 	}
 	return nil
 }
 
-// GetConfig func
-func (c *Camera) GetConfig() (*CameraWidget, error) {
-	w := CameraWidget{}
-
-	p := C.CString("")
-	defer C.free(unsafe.Pointer(p))
-
-	err := cameraResultToError(C.gp_widget_new(C.GP_WIDGET_WINDOW, p, &w.widget))
-	if err != nil {
-		C.free(unsafe.Pointer(w.widget))
-		return nil, err
-	}
-
-	if err := cameraResultToError(C.gp_camera_get_config(c.camera, &w.widget, c.context)); err != nil {
-		w.Free()
-		return nil, err
-	}
-	return &w, nil
+// Config func
+func (c *Camera) Config() (*CameraWidget, error) {
+	return &c.config, c.err
 }
