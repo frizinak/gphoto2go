@@ -39,6 +39,11 @@ var widgetTypeTable = map[C.CameraWidgetType]WidgetTypeInfo{
 	C.GP_WIDGET_DATE:    WidgetTypeInfo{"Date", wvtDate, C.GP_WIDGET_DATE, "Date entering widget"},
 }
 
+// Str get the widget's type as a string
+func (wti *WidgetTypeInfo) Str() string {
+	return wti.str
+}
+
 // CameraWidget struct
 type CameraWidget struct {
 	widget *C.CameraWidget
@@ -61,6 +66,13 @@ func (w *CameraWidget) SetValue(v interface{}) error {
 	}
 
 	return nil
+}
+
+// Free func
+func (w *CameraWidget) Free() {
+	if err := cameraResultToError(C.gp_widget_free(w.widget)); err != nil {
+		fmt.Printf("WARNING: error on C.gp_widget_free: %v\n", err)
+	}
 }
 
 //
@@ -161,13 +173,6 @@ func (w *CameraWidget) Readonly() (bool, error) {
 	return _ro == 1, nil
 }
 
-// Free func
-func (w *CameraWidget) Free() {
-	if err := cameraResultToError(C.gp_widget_free(w.widget)); err != nil {
-		fmt.Printf("WARNING: error on C.gp_widget_free: %v\n", err)
-	}
-}
-
 // Child func
 func (w *CameraWidget) Child(name string) (*CameraWidget, error) {
 	var child *C.CameraWidget
@@ -182,4 +187,22 @@ func (w *CameraWidget) Child(name string) (*CameraWidget, error) {
 	}
 
 	return &CameraWidget{child}, nil
+}
+
+// ValueType func
+func (w *CameraWidget) ValueType() (string, error) {
+	wti, err := w.Type()
+	if err != nil {
+		return "", err
+	}
+	switch wti.vtype {
+	case wvtString:
+		return "string", nil
+	case wvtNum:
+		return "int", nil
+	case wvtDate:
+		return "date", nil
+	default:
+		return "weird", nil
+	}
 }
