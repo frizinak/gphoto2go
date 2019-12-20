@@ -4,7 +4,7 @@ package gphoto2go
 import "C"
 
 // ToString func
-func ToString(charPtr *C.char) (string) {
-	model := C.GoString((*C.char)(charPtr))
-	return model
+func ToString(charPtr *C.char) string {
+	gostring := C.GoString((*C.char)(charPtr))
+	return gostring
 }

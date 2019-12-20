@@ -21,14 +21,14 @@ type Camera struct {
 	err       error
 }
 
-// Init camera
+// Init creates a GPhoto2 context, the camera object, inits it, then obtain the camera's abilities and configuration.
+// Returns error if any step fails and nil otherwise
 func (c *Camera) Init() error {
 	c.context = C.gp_context_new()
 	p := C.CString("")
 	defer C.free(unsafe.Pointer(p))
 
 	C.gp_camera_new(&c.camera)
-
 	if c.err = cameraResultToError(C.gp_camera_init(c.camera, c.context)); c.err != nil {
 		return c.err
 	} else if c.err = cameraResultToError(C.gp_camera_get_abilities(c.camera, &c.abilities)); c.err != nil {
@@ -225,10 +225,10 @@ func (c *Camera) CapturePreviewToFile(fileName string) (cf CameraFile, err error
 
 	cfr := new(cameraFileReader)
 	cfr.camera = c
-	cfr.cCameraFile = cf.file
 	cfr.offset = 0
 	cfr.closed = false
 
+	cfr.cCameraFile = cf.file
 	cfr.fullSize = uint64(cf.cSize)
 	cfr.cBuffer = cf.buf
 

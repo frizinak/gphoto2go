@@ -51,8 +51,9 @@ for _, folder := range folders {
     files, _ := camera.ListFiles(folder)
     for _, fileName := range files {
         cameraFileReader := camera.FileReader(folder, fileName)
-        fileWriter := os.Create("/tmp/" + fileName)
-        io.Copy(fileWriter, cameraFileReader)
+        if fileWriter, err := os.Create("/tmp/" + fileName); err == nil {
+            io.Copy(fileWriter, cameraFileReader)
+        }
 
         // Important, since there is memory used in the transfer that needs to be freed up
         cameraFileReader.Close()

@@ -44,6 +44,29 @@ type CameraWidget struct {
 	widget *C.CameraWidget
 }
 
+// SetValue func
+func (w *CameraWidget) SetValue(v interface{}) error {
+	switch v.(type) {
+	case string:
+		cstr := C.CString(v.(string))
+		defer C.free(unsafe.Pointer(cstr))
+
+		if err := cameraResultToError(C.gp_widget_set_value(w.widget, unsafe.Pointer(cstr))); err != nil {
+			return err
+		}
+	default:
+		if err := cameraResultToError(C.gp_widget_set_value(w.widget, unsafe.Pointer(&v))); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+//
+// getters and setters
+//
+
 // Name func
 func (w *CameraWidget) Name() (string, error) {
 	var _name *C.char
@@ -159,23 +182,4 @@ func (w *CameraWidget) Child(name string) (*CameraWidget, error) {
 	}
 
 	return &CameraWidget{child}, nil
-}
-
-// SetValue func
-func (w *CameraWidget) SetValue(v interface{}) error {
-	switch v.(type) {
-	case string:
-		cstr := C.CString(v.(string))
-		defer C.free(unsafe.Pointer(cstr))
-
-		if err := cameraResultToError(C.gp_widget_set_value(w.widget, unsafe.Pointer(cstr))); err != nil {
-			return err
-		}
-	default:
-		if err := cameraResultToError(C.gp_widget_set_value(w.widget, unsafe.Pointer(&v))); err != nil {
-			return err
-		}
-	}
-
-	return nil
 }
