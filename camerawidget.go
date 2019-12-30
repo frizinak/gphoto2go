@@ -206,3 +206,36 @@ func (w *CameraWidget) ValueType() (string, error) {
 		return "weird", nil
 	}
 }
+
+func (w *CameraWidget) choiceCount() (int, error) {
+	if tipe, err := w.Type(); err == nil {
+		if tipe.enum != C.GP_WIDGET_RADIO {
+			return 0, nil
+		}
+		return 0, err
+	}
+	numChoices := C.gp_widget_count_choices(w.widget)
+	if numChoices < 0 {
+		return 0, cameraResultToError(numChoices)
+	}
+
+	return int(numChoices), nil
+}
+
+// Choices func
+func (w *CameraWidget) Choices() ([]string, error) {
+	numChoices, err := w.choiceCount()
+	if err != nil {
+		return nil, err
+	}
+	choices := make([]string, numChoices)
+	for idx := 0; idx < numChoices; idx++ {
+		var val *C.char
+		if err := cameraResultToError(C.gp_widget_get_choice(w.widget, C.int(idx), &val)); err != nil {
+			return nil, err
+		}
+		choices[idx] = ToString(val)  // ToString makes a copy
+		C.free(unsafe.Pointer(val))
+	}
+	return choices, nil
+}

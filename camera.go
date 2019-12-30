@@ -21,7 +21,7 @@ type Camera struct {
 	err       error
 }
 
-// Init creates a GPhoto2 context, the camera object, inits it, then obtain the camera's abilities and configuration.
+// Init creates a GPhoto2 context, the camera object, inits it, then obtains the camera's abilities and configuration.
 // Returns error if any step fails and nil otherwise
 func (c *Camera) Init() error {
 	c.context = C.gp_context_new()
