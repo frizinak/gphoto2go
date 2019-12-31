@@ -25,15 +25,24 @@ type Camera struct {
 // Returns error if any step fails and nil otherwise
 func (c *Camera) Init() error {
 	c.context = C.gp_context_new()
-	p := C.CString("")
-	defer C.free(unsafe.Pointer(p))
 
 	C.gp_camera_new(&c.camera)
 	if c.err = cameraResultToError(C.gp_camera_init(c.camera, c.context)); c.err != nil {
 		return c.err
 	} else if c.err = cameraResultToError(C.gp_camera_get_abilities(c.camera, &c.abilities)); c.err != nil {
 		return c.err
-	} else if c.err = cameraResultToError(C.gp_widget_new(C.GP_WIDGET_WINDOW, p, &c.config.widget)); c.err != nil {
+	} else if c.err = c.Update(); c.err != nil {
+		return c.err
+	}
+
+	return nil
+}
+
+// Update re-initializes camera data that can be changed dynamically
+func (c *Camera) Update() error {
+	p := C.CString("")
+	defer C.free(unsafe.Pointer(p))
+	if c.err = cameraResultToError(C.gp_widget_new(C.GP_WIDGET_WINDOW, p, &c.config.widget)); c.err != nil {
 		C.free(unsafe.Pointer(c.config.widget))
 		return c.err
 	} else if c.err = cameraResultToError(C.gp_camera_get_config(c.camera, &c.config.widget, c.context)); c.err != nil {

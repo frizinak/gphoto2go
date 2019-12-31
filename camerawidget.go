@@ -212,13 +212,13 @@ func (w *CameraWidget) choiceCount() (int, error) {
 		if tipe.enum != C.GP_WIDGET_RADIO {
 			return 0, nil
 		}
+	} else {
 		return 0, err
 	}
 	numChoices := C.gp_widget_count_choices(w.widget)
 	if numChoices < 0 {
 		return 0, cameraResultToError(numChoices)
 	}
-
 	return int(numChoices), nil
 }
 
@@ -234,8 +234,7 @@ func (w *CameraWidget) Choices() ([]string, error) {
 		if err := cameraResultToError(C.gp_widget_get_choice(w.widget, C.int(idx), &val)); err != nil {
 			return nil, err
 		}
-		choices[idx] = ToString(val)  // ToString makes a copy
-		C.free(unsafe.Pointer(val))
+		choices[idx] = ToString(val) // ToString makes a copy
 	}
 	return choices, nil
 }
