@@ -83,6 +83,21 @@ func (c *Camera) TriggerCaptureToFile() (CameraFilePath, error) {
 	return path, nil
 }
 
+// CaptureToFile func
+func (c *Camera) CaptureToFile(filePath string) error {
+	cfp, err := c.TriggerCaptureToFile()
+	if err != nil {
+		return err
+	}
+	cfr := c.FileReader(cfp.Folder, cfp.Name)
+	defer cfr.Close()
+
+	if fileWriter, err := os.Create(filePath); err == nil {
+		io.Copy(fileWriter, cfr)
+	}
+	return err
+}
+
 // AsyncWaitForEvent func
 func (c *Camera) AsyncWaitForEvent(timeout int) chan *CameraEvent {
 	var eventType C.CameraEventType
@@ -226,7 +241,7 @@ func (c *Camera) CapturePreview() (cf CameraFile, err error) {
 }
 
 // CapturePreviewToFile func
-func (c *Camera) CapturePreviewToFile(fileName string) (cf CameraFile, err error) {
+func (c *Camera) CapturePreviewToFile(filePath string) (cf CameraFile, err error) {
 	cf, err = c.CapturePreview()
 	if err != nil {
 		return cf, err
@@ -243,7 +258,7 @@ func (c *Camera) CapturePreviewToFile(fileName string) (cf CameraFile, err error
 
 	defer cfr.Close()
 
-	if fileWriter, err := os.Create(fileName); err == nil {
+	if fileWriter, err := os.Create(filePath); err == nil {
 		io.Copy(fileWriter, cfr)
 	}
 
