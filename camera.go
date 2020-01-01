@@ -83,18 +83,25 @@ func (c *Camera) TriggerCaptureToFile() (CameraFilePath, error) {
 	return path, nil
 }
 
+// DownloadFile saves the file from a TriggerCaptureToFile return
+func (c *Camera) DownloadFile(cfp CameraFilePath, filePath string) (err error) {
+	cfr := c.FileReader(cfp.Folder, cfp.Name)
+	defer cfr.Close()
+
+	if fileWriter, err := os.Create(filePath); err == nil {
+		io.Copy(fileWriter, cfr)
+		return nil
+	}
+	return err
+}
+
 // CaptureToFile func
 func (c *Camera) CaptureToFile(filePath string) error {
 	cfp, err := c.TriggerCaptureToFile()
 	if err != nil {
 		return err
 	}
-	cfr := c.FileReader(cfp.Folder, cfp.Name)
-	defer cfr.Close()
-
-	if fileWriter, err := os.Create(filePath); err == nil {
-		io.Copy(fileWriter, cfr)
-	}
+	err = c.DownloadFile(cfp, filePath)
 	return err
 }
 
