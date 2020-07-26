@@ -150,20 +150,27 @@ func (c *Camera) ListFolders(folder string) ([]string, error) {
 }
 
 // RListFolders func
-func (c *Camera) RListFolders(folder string) []string {
+func (c *Camera) RListFolders(folder string) ([]string, error) {
 	folders := make([]string, 0)
 	path := folder
 	if !strings.HasSuffix(path, "/") {
 		path = path + "/"
 	}
-	subfolders, _ := c.ListFolders(path)
+	subfolders, err := c.ListFolders(path)
+	if err != nil {
+		return folders, err
+	}
 	for _, sub := range subfolders {
 		subPath := path + sub
 		folders = append(folders, subPath)
-		folders = append(folders, c.RListFolders(subPath)...)
+		subResults, err := c.RListFolders(subPath)
+		if err != nil {
+			return folders, err
+		}
+		folders = append(folders, subResults...)
 	}
 
-	return folders
+	return folders, nil
 }
 
 // ListFiles func
