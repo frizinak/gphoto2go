@@ -5,6 +5,7 @@ package gphoto2go
 // #include <stdlib.h>
 import "C"
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -221,6 +222,89 @@ func (c *Camera) FileReader(folder string, fileName string) io.ReadCloser {
 	cfr.fullSize = uint64(cSize)
 
 	return cfr
+}
+
+type ReadSeeker struct {
+	c      *Camera
+	dir    *C.char
+	file   *C.char
+	offset int64
+	err    error
+}
+
+func (r *ReadSeeker) Seek(offset int64, whence int) (int64, error) {
+	n := r.offset
+	switch whence {
+	case io.SeekStart:
+		n = offset
+	case io.SeekCurrent:
+		n += offset
+	case io.SeekEnd:
+		return r.offset, errors.New("seekEnd not supported")
+	default:
+		return r.offset, errors.New("unknown whence")
+	}
+
+	if n < 0 {
+		return r.offset, errors.New("invalid negative offset")
+	}
+
+	r.offset = n
+	return r.offset, nil
+}
+
+func (r *ReadSeeker) Read(p []byte) (int, error) {
+	if r.err != nil {
+		return 0, r.err
+	}
+	cSize := C.ulong(len(p))
+	cOffset := C.ulong(r.offset)
+	s := make([]C.char, len(p))
+	retval := C.gp_camera_file_read(
+		r.c.camera,
+		r.dir,
+		r.file,
+		C.GP_FILE_TYPE_NORMAL,
+		cOffset,
+		&s[0],
+		&cSize,
+		r.c.context,
+	)
+
+	err := cameraResultToError(retval)
+	if err != nil {
+		return 0, err
+	}
+
+	size := int(cSize)
+	r.offset += int64(size)
+
+	if size < len(p) {
+		r.err = io.EOF
+		err = io.EOF
+	}
+
+	for i := 0; i < size; i++ {
+		p[i] = byte(s[i])
+	}
+
+	return size, err
+}
+
+func (r *ReadSeeker) Close() error {
+	r.err = errors.New("can't read from closed reader")
+	C.free(unsafe.Pointer(r.dir))
+	C.free(unsafe.Pointer(r.file))
+	return nil
+}
+
+// ReadSeeker returns an io.ReadSeeker + io.Closer
+// that has no clue about the underlying filesize.
+// Uses gp_camera_file_read instead of gp_camera_file_get for increased performance.
+func (c *Camera) ReadSeeker(folder, file string) *ReadSeeker {
+	cFileName := C.CString(file)
+	cFolderName := C.CString(folder)
+	return &ReadSeeker{c: c, dir: cFolderName, file: cFileName}
 }
 
 // DeleteFile func
