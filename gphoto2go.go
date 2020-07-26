@@ -5,7 +5,6 @@ package gphoto2go
 // #include <stdlib.h>
 import "C"
 import (
-	"fmt"
 	"unsafe"
 )
 
@@ -73,16 +72,4 @@ func cameraListToMap(cameraList *C.CameraList) (map[string]string, int) {
 	}
 
 	return vals, 0
-}
-
-func cameraResultToError(err C.int) error {
-	if err != 0 {
-		return fmt.Errorf(C.GoString(C.gp_result_as_string(err)))
-	}
-	return nil
-}
-
-// CameraResultToString func
-func CameraResultToString(err C.int) string {
-	return C.GoString(C.gp_result_as_string(err))
 }
