@@ -314,6 +314,38 @@ func (c *Camera) ReadSeeker(folder, file string) *ReadSeeker {
 	return &ReadSeeker{c: c, dir: cFolderName, file: cFileName}
 }
 
+type Info struct {
+	Size          int64
+	MTime         int64
+	Width, Height int
+}
+
+func (c *Camera) Info(folder, file string) (*Info, error) {
+	cInfo := new(C.CameraFileInfo)
+	cFileName := C.CString(file)
+	cFolderName := C.CString(folder)
+	defer C.free(unsafe.Pointer(cFileName))
+	defer C.free(unsafe.Pointer(cFolderName))
+	retval := C.gp_camera_file_get_info(
+		c.camera,
+		cFolderName,
+		cFileName,
+		cInfo,
+		c.context,
+	)
+
+	if err := cameraResultToError(retval); err != nil {
+		return nil, err
+	}
+
+	return &Info{
+		Size:   int64(cInfo.file.size),
+		MTime:  int64(cInfo.file.mtime),
+		Width:  int(cInfo.file.width),
+		Height: int(cInfo.file.height),
+	}, nil
+}
+
 // DeleteFile func
 func (c *Camera) DeleteFile(folder, file string) error {
 	folderBytes := []byte(folder)
