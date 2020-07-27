@@ -1,5 +1,22 @@
 # gPhoto2-Go
 
+Fork of [heck/gphoto2go](https://github.com/heck/gphoto2go)
+which in turn is a fork of [micahwedemeyer/gphoto2go](https://github.com/micahwedemeyer/gphoto2go)
+
+Thanks to them!
+
+# Changes
+
+- Improves errors a bit
+- Adds bindings for gp_camera_file_read and gp_camera_file_get_info
+
+I only forked to increase the performance of random reads (for [frizinak/photos](https://github.com/frizinak/photos)).
+
+c.FileReader is pretty slow as gp_camera_file_get reads the entire file in memory,
+while c.ReadSeeker allows random access without reading the entire file (gp_camera_file_read) but has the drawback of not knowing the filesize.
+
+# Original README:
+
 A more Go idiomatic interface to the gPhoto2 library.
 
 ## Warning
